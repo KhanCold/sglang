@@ -53,6 +53,9 @@ from sglang.srt.model_executor.weight_updater import (
     update_weights_from_distributed as _free_update_weights_from_distributed,
 )
 from sglang.srt.model_executor.weight_updater import (
+    update_weights_from_ipc as _free_update_weights_from_ipc,
+)
+from sglang.srt.model_executor.weight_updater import (
     update_weights_from_tensor as _free_update_weights_from_tensor,
 )
 from sglang.srt.server_args import ServerArgs
@@ -192,7 +195,10 @@ class BaseTpWorker(ABC):
 
     def update_weights_from_ipc(self, recv_req: UpdateWeightsFromIPCReqInput):
         """Update weights from IPC for checkpoint-engine integration."""
-        success, message = self.model_runner.update_weights_from_ipc(recv_req)
+        success, message = _free_update_weights_from_ipc(
+            model_runner_for_checkpoint_engine=self.model_runner,
+            recv_req=recv_req,
+        )
         return success, message
 
     def get_weights_by_name(self, recv_req: GetWeightsByNameReqInput):
