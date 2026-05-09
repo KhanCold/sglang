@@ -43,6 +43,9 @@ from sglang.srt.mem_cache.memory_pool import ReqToTokenPool
 from sglang.srt.model_executor.forward_batch_info import ForwardBatch, PPProxyTensors
 from sglang.srt.model_executor.pool_configurator import MemoryPoolConfig
 from sglang.srt.model_executor.weight_exporter import (
+    get_weights_by_name as _free_get_weights_by_name,
+)
+from sglang.srt.model_executor.weight_exporter import (
     init_weights_send_group_for_remote_instance as _free_init_weights_send_group_for_remote_instance,
 )
 from sglang.srt.model_executor.weight_exporter import (
@@ -214,8 +217,11 @@ class BaseTpWorker(ABC):
         return success, message
 
     def get_weights_by_name(self, recv_req: GetWeightsByNameReqInput):
-        parameter = self.model_runner.get_weights_by_name(
-            recv_req.name, recv_req.truncate_size
+        parameter = _free_get_weights_by_name(
+            model=self.model_runner.model,
+            tp_size=self.model_runner.tp_size,
+            name=recv_req.name,
+            truncate_size=recv_req.truncate_size,
         )
         return parameter
 
