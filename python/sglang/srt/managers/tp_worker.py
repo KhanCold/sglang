@@ -46,6 +46,9 @@ from sglang.srt.model_executor.weight_updater import (
     destroy_weights_update_group,
     init_weights_update_group,
 )
+from sglang.srt.model_executor.weight_updater import (
+    update_weights_from_disk as _free_update_weights_from_disk,
+)
 from sglang.srt.server_args import ServerArgs
 from sglang.srt.utils import MultiprocessingSerializer, broadcast_pyobj, set_random_seed
 from sglang.srt.utils.hf_transformers_utils import (
@@ -98,9 +101,10 @@ class BaseTpWorker(ABC):
         )
 
     def update_weights_from_disk(self, recv_req: UpdateWeightFromDiskReqInput):
-        success, message = self.model_runner.update_weights_from_disk(
-            recv_req.model_path,
-            recv_req.load_format,
+        success, message = _free_update_weights_from_disk(
+            model_runner_ref=self.model_runner,
+            model_path=recv_req.model_path,
+            load_format=recv_req.load_format,
             recapture_cuda_graph=recv_req.recapture_cuda_graph,
         )
         return success, message
