@@ -28,7 +28,7 @@ import uuid
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, Optional, Tuple, Union
 
 import torch
 import torch.distributed as dist
@@ -96,7 +96,6 @@ from sglang.srt.eplb.expert_distribution import (
     set_global_expert_distribution_recorder,
 )
 from sglang.srt.eplb.expert_location import (
-    ExpertLocationMetadata,
     broadcast_global_expert_location_metadata,
     compute_initial_expert_location_metadata,
     get_global_expert_location_metadata,
@@ -153,9 +152,6 @@ from sglang.srt.model_executor.piecewise_cuda_graph_runner import (
     PiecewiseCudaGraphRunner,
 )
 from sglang.srt.model_executor.pool_configurator import MemoryPoolConfig
-from sglang.srt.model_executor.weight_updater import (
-    update_weights_from_disk as _free_update_weights_from_disk,
-)
 from sglang.srt.model_loader.loader import get_model_loader
 from sglang.srt.model_loader.remote_instance_weight_loader_utils import (
     RemoteInstanceWeightLoaderBackend,
@@ -1588,49 +1584,6 @@ class ModelRunner(ModelRunnerKVCacheMixin):
                 raise ValueError(
                     f"TP rank {self.tp_rank} could finish the model loading, but there are other ranks that didn't finish loading. It is likely due to unexpected failures (e.g., OOM) or a slow node."
                 ) from None
-
-    def update_expert_location(
-        self,
-        new_expert_location_metadata: ExpertLocationMetadata,
-        update_layer_ids: List[int],
-    ):
-        p2p_missing_logical_experts = self.expert_location_updater.update(
-            self.model.routed_experts_weights_of_layer,
-            new_expert_location_metadata,
-            update_layer_ids=update_layer_ids,
-            nnodes=self.server_args.nnodes,
-            rank=self.tp_rank,
-        )
-
-        if len(p2p_missing_logical_experts) > 0:
-            # Load the missing expert weights from disk
-            if callable(getattr(self.model, "generate_weight_name_filter", None)):
-                # Filter and load only missing expert weights
-                weight_name_filter = self.model.generate_weight_name_filter(
-                    p2p_missing_logical_experts
-                )
-            else:
-                # Do a full reload from disk/DRAM
-                logger.info(
-                    "[Elastic EP] Model does not implement generate_weight_name_filter. "
-                    "Performing full weight reload."
-                )
-                weight_name_filter = None
-
-            if (
-                self.expert_backup_client is not None
-                and self.expert_backup_client.use_backup
-            ):
-                # Load the missing weights from the DRAM backup
-                self.expert_backup_client.update_weights(weight_name_filter)
-            else:
-                # Load the missing weights from disk
-                _free_update_weights_from_disk(
-                    model_runner_ref=self,
-                    model_path=get_global_server_args().model_path,
-                    load_format=get_global_server_args().load_format,
-                    weight_name_filter=weight_name_filter,
-                )
 
     def maybe_recover_ep_ranks(self):
         # TODO(perf): `active_ranks.all()` on a CUDA tensor triggers host-device
