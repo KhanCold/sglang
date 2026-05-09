@@ -52,6 +52,9 @@ from sglang.srt.model_executor.weight_updater import (
 from sglang.srt.model_executor.weight_updater import (
     update_weights_from_distributed as _free_update_weights_from_distributed,
 )
+from sglang.srt.model_executor.weight_updater import (
+    update_weights_from_tensor as _free_update_weights_from_tensor,
+)
 from sglang.srt.server_args import ServerArgs
 from sglang.srt.utils import MultiprocessingSerializer, broadcast_pyobj, set_random_seed
 from sglang.srt.utils.hf_transformers_utils import (
@@ -175,7 +178,11 @@ class BaseTpWorker(ABC):
     def update_weights_from_tensor(self, recv_req: UpdateWeightsFromTensorReqInput):
 
         monkey_patch_torch_reductions()
-        success, message = self.model_runner.update_weights_from_tensor(
+        success, message = _free_update_weights_from_tensor(
+            model=self.model_runner.model,
+            tp_rank=self.model_runner.tp_rank,
+            device=self.model_runner.device,
+            custom_weight_loader=self.model_runner.server_args.custom_weight_loader,
             named_tensors=MultiprocessingSerializer.deserialize(
                 recv_req.serialized_named_tensors[self.tp_rank]
             ),
