@@ -49,6 +49,9 @@ from sglang.srt.model_executor.weight_updater import (
 from sglang.srt.model_executor.weight_updater import (
     update_weights_from_disk as _free_update_weights_from_disk,
 )
+from sglang.srt.model_executor.weight_updater import (
+    update_weights_from_distributed as _free_update_weights_from_distributed,
+)
 from sglang.srt.server_args import ServerArgs
 from sglang.srt.utils import MultiprocessingSerializer, broadcast_pyobj, set_random_seed
 from sglang.srt.utils.hf_transformers_utils import (
@@ -157,12 +160,15 @@ class BaseTpWorker(ABC):
     def update_weights_from_distributed(
         self, recv_req: UpdateWeightsFromDistributedReqInput
     ):
-        success, message = self.model_runner.update_weights_from_distributed(
-            recv_req.names,
-            recv_req.dtypes,
-            recv_req.shapes,
-            recv_req.group_name,
-            recv_req.load_format,
+        success, message = _free_update_weights_from_distributed(
+            model=self.model_runner.model,
+            _model_update_group=self.model_runner._model_update_group,
+            device=self.model_runner.device,
+            names=recv_req.names,
+            dtypes=recv_req.dtypes,
+            shapes=recv_req.shapes,
+            group_name=recv_req.group_name,
+            load_format=recv_req.load_format,
         )
         return success, message
 
